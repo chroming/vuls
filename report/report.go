@@ -14,6 +14,7 @@ import (
 	"github.com/future-architect/vuls/libmanager"
 
 	"github.com/BurntSushi/toml"
+	"github.com/deckarep/golang-set"
 	"github.com/future-architect/vuls/config"
 	c "github.com/future-architect/vuls/config"
 	"github.com/future-architect/vuls/contrib/owasp-dependency-check/parser"
@@ -222,14 +223,32 @@ func fillCveDetail(driver cvedb.DB, r *models.ScanResult) error {
 	if err != nil {
 		return err
 	}
+	pkgVersions := mapset.NewSet()
+	for _, p := range r.Packages {
+		pkgVersions.Add(fmt.Sprintf("%s-%s", p.Name, p.Version))
+	}
 	for _, d := range ds {
 		nvd := models.ConvertNvdJSONToModel(d.CveID, d.NvdJSON)
 		if nvd == nil {
 			nvd = models.ConvertNvdXMLToModel(d.CveID, d.NvdXML)
 		}
 		jvn := models.ConvertJvnToModel(d.CveID, d.Jvn)
-
 		alerts := fillCertAlerts(&d)
+		AffectVersions := mapset.NewSet()
+		if d.NvdJSON != nil {
+			for _, aff := range d.NvdJSON.Affects {
+				AffectVersions.Add(fmt.Sprintf("%s-%s", aff.Product, aff.Version))
+			}
+			if pkgVersions.Intersect(AffectVersions).Cardinality() == 0 {
+				util.Log.Debugf("Packages version set: %s not in affected version: %s, delete %s", pkgVersions, AffectVersions, d.CveID)
+				delete(r.ScannedCves, d.CveID)
+				continue
+			}
+		} else {
+			util.Log.Debugf("No CVE info in CVE-DB, delete %s", d.CveID)
+			delete(r.ScannedCves, d.CveID)
+			continue
+		}
 		for cveID, vinfo := range r.ScannedCves {
 			if vinfo.CveID == d.CveID {
 				if vinfo.CveContents == nil {

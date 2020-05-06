@@ -20,6 +20,7 @@ require (
 	github.com/aws/aws-sdk-go v1.30.9
 	github.com/boltdb/bolt v1.3.1
 	github.com/cenkalti/backoff v2.2.1+incompatible
+	github.com/deckarep/golang-set v1.7.1
 	github.com/google/subcommands v1.2.0
 	github.com/gosuri/uitable v0.0.4
 	github.com/hashicorp/go-uuid v1.0.2
